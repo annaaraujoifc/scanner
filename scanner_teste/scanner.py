@@ -1,36 +1,55 @@
 import cv2
 import numpy as np
+import os
 
-def analisar_imagem(caminho):
+def carregar_imagem(caminho):
+    if not os.path.exists(caminho):
+        return None, "Arquivo não encontrado."
+
     img = cv2.imread(caminho)
 
     if img is None:
-        return "Erro ao carregar a imagem"
+        return None, "Formato de imagem inválido ou corrompido."
 
-    # Converte para escala de cinza
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    return img, None
 
-    total_pixels = gray.size
 
-    # Pixels muito escuros (possíveis manchas)
-    dark_pixels = np.sum(gray < 50)
+def analisar_imagem(caminho):
+    img, erro = carregar_imagem(caminho)
 
-    # Pixels muito claros (possíveis rasgos)
-    white_pixels = np.sum(gray > 220)
+    if erro:
+        return f"⚠️ Não foi possível analisar a imagem: {erro}"
+
+    img = cv2.resize(img, (400, 400))
+
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    h, s, v = cv2.split(hsv)
+
+    v_blur = cv2.GaussianBlur(v, (7,7), 0)
+
+    brilho_medio = np.mean(v_blur)
+    if brilho_medio < 50:
+        return "⚠️ Foto muito escura. Tire outra em local iluminado."
+
+    total_pixels = v_blur.size
+
+    dark_pixels = np.sum(v_blur < 20)
+    white_pixels = np.sum(v_blur > 245)
 
     perc_dark = dark_pixels / total_pixels
     perc_white = white_pixels / total_pixels
 
-    print(f"Porcentagem de manchas (escuro): {perc_dark:.2%}")
-    print(f"Porcentagem de rasgos (claro): {perc_white:.2%}")
+    print(f"Manchas: {perc_dark:.2%}")
+    print(f"Rasgos: {perc_white:.2%}")
+    print(f"Brilho: {brilho_medio:.2f}")
 
-    if perc_dark > 0.10 or perc_white > 0.10:
+    if perc_white > 0.06 or perc_dark > 0.10:
         return "❌ Não recomendado para venda"
-    elif perc_dark > 0.05 or perc_white > 0.05:
+    elif perc_white > 0.02 or perc_dark > 0.05:
         return "⚠️ Estado regular"
     else:
         return "✅ Bom estado"
 
 
-resultado = analisar_imagem("roupa.jpeg")  # ou roupa.jpg
+resultado = analisar_imagem("sapato.jpg")
 print("\nResultado:", resultado)
