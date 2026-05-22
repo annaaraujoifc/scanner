@@ -1,55 +1,41 @@
-import cv2
+import tensorflow as tf
 import numpy as np
+from tensorflow.keras.preprocessing import image
 import os
 
-def carregar_imagem(caminho):
-    if not os.path.exists(caminho):
-        return None, "Arquivo não encontrado."
+modelo = tf.keras.models.load_model("modelo_brecho.h5")
 
-    img = cv2.imread(caminho)
-
-    if img is None:
-        return None, "Formato de imagem inválido ou corrompido."
-
-    return img, None
+classes = ['bom', 'regular', 'ruim']
 
 
 def analisar_imagem(caminho):
-    img, erro = carregar_imagem(caminho)
 
-    if erro:
-        return f"⚠️ Não foi possível analisar a imagem: {erro}"
+    if not os.path.exists(caminho):
+        return "Arquivo não encontrado."
 
-    img = cv2.resize(img, (400, 400))
+    img = image.load_img(
+        caminho,
+        target_size=(224, 224)
+    )
 
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    h, s, v = cv2.split(hsv)
+    img_array = image.img_to_array(img)
 
-    v_blur = cv2.GaussianBlur(v, (7,7), 0)
+    img_array = np.expand_dims(img_array, axis=0)
 
-    brilho_medio = np.mean(v_blur)
-    if brilho_medio < 50:
-        return "⚠️ Foto muito escura. Tire outra em local iluminado."
+    img_array = img_array / 255.0
 
-    total_pixels = v_blur.size
+    prediction = modelo.predict(img_array)
+    breakpoint()
+    resultado = classes[np.argmax(prediction)]
 
-    dark_pixels = np.sum(v_blur < 20)
-    white_pixels = np.sum(v_blur > 245)
+    confianca = np.max(prediction) * 100
 
-    perc_dark = dark_pixels / total_pixels
-    perc_white = white_pixels / total_pixels
-
-    print(f"Manchas: {perc_dark:.2%}")
-    print(f"Rasgos: {perc_white:.2%}")
-    print(f"Brilho: {brilho_medio:.2f}")
-
-    if perc_white > 0.06 or perc_dark > 0.10:
-        return "❌ Não recomendado para venda"
-    elif perc_white > 0.02 or perc_dark > 0.05:
-        return "⚠️ Estado regular"
-    else:
-        return "✅ Bom estado"
+    return f"""
+Resultado: {resultado}
+Confiança: {confianca:.2f}%
+"""
 
 
-resultado = analisar_imagem("sapato.jpg")
-print("\nResultado:", resultado)
+resultado = analisar_imagem("../boa.webp")
+
+print(resultado)
